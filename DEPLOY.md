@@ -20,7 +20,7 @@
 
 ### 2. Fork 项目
 
-1. 访问项目仓库：https://github.com/your-username/zeabur-monitor
+1. 访问项目仓库：https://github.com/asts-top/zeabur-manager
 2. 点击右上角 **Fork** 按钮
 3. 将项目 Fork 到你的 GitHub 账号下
 
@@ -298,7 +298,7 @@ Zeabur 自动为所有域名提供免费的 HTTPS 证书，无需额外配置。
 - [Zeabur 官网](https://zeabur.com)
 - [Zeabur 文档](https://zeabur.com/docs)
 - [Zeabur API 文档](https://zeabur.com/docs/zh-CN/developer/public-api)
-- [项目 GitHub](https://github.com/your-username/zeabur-monitor)
+- [项目 GitHub](https://github.com/asts-top/zeabur-manager)
 
 ---
 
