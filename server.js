@@ -1095,12 +1095,19 @@ async function keepAliveSession(sessionToken, accountName) {
   });
 }
 
-// 保活所有账号的 Session
-async function keepAliveAllSessions() {
+// 智能保活策略：每7天随机保活20个账号，相邻账号间隔至少3小时
+let keepAliveTimers = [];
+let keepAlivePlan = [];
+
+function generateKeepAlivePlan() {
+  // 清除之前的定时器
+  keepAliveTimers.forEach(timer => clearTimeout(timer));
+  keepAliveTimers = [];
+  keepAlivePlan = [];
+
   const serverAccounts = loadServerAccounts();
   const envAccounts = getEnvAccounts();
   const allAccounts = [...envAccounts, ...serverAccounts];
-
   const accountsWithSession = allAccounts.filter(acc => acc.sessionToken);
 
   if (accountsWithSession.length === 0) {
@@ -1108,41 +1115,93 @@ async function keepAliveAllSessions() {
     return;
   }
 
-  console.log(`⏰ [保活] 开始刷新 ${accountsWithSession.length} 个账号的 Session...`);
+  // 每7天选择最多20个账号
+  const ACCOUNTS_PER_CYCLE = 20;
+  const CYCLE_DAYS = 7;
+  const MIN_INTERVAL_HOURS = 3;
 
-  let successCount = 0;
-  let failCount = 0;
-
-  for (const account of accountsWithSession) {
-    const result = await keepAliveSession(account.sessionToken, account.name);
-    if (result.success) {
-      successCount++;
-      console.log(`   ✅ ${account.name}: 保活成功`);
-    } else {
-      failCount++;
-      console.log(`   ❌ ${account.name}: ${result.error}`);
-    }
-    // 每个请求间隔 1 秒，避免请求过快
-    await new Promise(r => setTimeout(r, 1000));
+  // 随机选择账号（如果超过20个）
+  let selectedAccounts = [...accountsWithSession];
+  if (selectedAccounts.length > ACCOUNTS_PER_CYCLE) {
+    // 随机打乱并选择前20个
+    selectedAccounts = selectedAccounts.sort(() => Math.random() - 0.5).slice(0, ACCOUNTS_PER_CYCLE);
   }
 
-  console.log(`⏰ [保活] 完成: ${successCount} 成功, ${failCount} 失败`);
+  // 计算7天内的随机时间点，间隔至少3小时
+  const now = Date.now();
+  const cycleMs = CYCLE_DAYS * 24 * 60 * 60 * 1000;
+  const minIntervalMs = MIN_INTERVAL_HOURS * 60 * 60 * 1000;
+
+  // 生成随机时间点
+  const timeSlots = [];
+  let lastTime = now + Math.random() * minIntervalMs; // 第一个在0-3小时内随机
+
+  for (let i = 0; i < selectedAccounts.length; i++) {
+    // 在最小间隔基础上增加随机时间（3-6小时）
+    const randomExtra = Math.random() * minIntervalMs;
+    lastTime += minIntervalMs + randomExtra;
+
+    // 确保不超过7天
+    if (lastTime > now + cycleMs) {
+      lastTime = now + Math.random() * cycleMs;
+    }
+
+    timeSlots.push(lastTime);
+  }
+
+  // 打乱时间槽顺序，使其更随机
+  const shuffledSlots = timeSlots.sort(() => Math.random() - 0.5);
+
+  console.log(`⏰ [保活] 生成7天保活计划：${selectedAccounts.length} 个账号`);
+
+  // 为每个账号设置定时器
+  selectedAccounts.forEach((account, index) => {
+    const executeTime = shuffledSlots[index];
+    const delay = executeTime - now;
+    const executeDate = new Date(executeTime);
+
+    keepAlivePlan.push({
+      account: account.name,
+      time: executeDate.toLocaleString('zh-CN'),
+      delay: Math.round(delay / 1000 / 60 / 60 * 10) / 10 // 小时，保留1位小数
+    });
+
+    const timer = setTimeout(async () => {
+      console.log(`⏰ [保活] 执行: ${account.name}`);
+      const result = await keepAliveSession(account.sessionToken, account.name);
+      if (result.success) {
+        console.log(`   ✅ ${account.name}: 保活成功`);
+      } else {
+        console.log(`   ❌ ${account.name}: ${result.error}`);
+      }
+    }, delay);
+
+    keepAliveTimers.push(timer);
+  });
+
+  // 打印计划摘要
+  keepAlivePlan.sort((a, b) => a.delay - b.delay);
+  console.log(`   计划详情（按时间排序）:`);
+  keepAlivePlan.slice(0, 5).forEach(p => {
+    console.log(`     - ${p.account}: ${p.delay}小时后 (${p.time})`);
+  });
+  if (keepAlivePlan.length > 5) {
+    console.log(`     ... 还有 ${keepAlivePlan.length - 5} 个账号`);
+  }
+
+  // 7天后重新生成计划
+  setTimeout(() => {
+    console.log(`⏰ [保活] 7天周期结束，重新生成计划...`);
+    generateKeepAlivePlan();
+  }, cycleMs);
 }
 
 // 启动保活定时任务
 function startSessionKeepAlive() {
-  // 每 6 小时执行一次保活
-  const KEEP_ALIVE_INTERVAL = 6 * 60 * 60 * 1000; // 6小时
+  console.log(`⏰ Session 保活已启动（智能模式：每7天随机保活20个账号，间隔≥3小时）`);
 
-  console.log(`⏰ Session 保活已启动，每 6 小时执行一次`);
-
-  // 启动后 1 分钟执行第一次
+  // 启动后 30 秒生成计划（等待账号加载完成）
   setTimeout(() => {
-    keepAliveAllSessions();
-  }, 60 * 1000);
-
-  // 之后每 6 小时执行一次
-  setInterval(() => {
-    keepAliveAllSessions();
-  }, KEEP_ALIVE_INTERVAL);
+    generateKeepAlivePlan();
+  }, 30 * 1000);
 }
