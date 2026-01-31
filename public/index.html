@@ -1603,58 +1603,25 @@
           let successCount = 0;
           let failedAccounts = [];
 
-          // 逐个验证并添加
+          // 逐个添加账号（不验证 API Token，因为可能已过期）
           for (const account of accounts) {
             try {
-              // 如果有 API Token，验证它
-              if (account.token) {
-                const response = await fetch('/api/validate-account', {
-                  method: 'POST',
-                  headers: this.getAuthHeaders(),
-                  body: JSON.stringify({
-                    accountName: account.name,
-                    apiToken: account.token
-                  })
+              // 检查是否已存在
+              const exists = this.managedAccounts.some(acc => acc.name === account.name);
+              if (!exists) {
+                this.managedAccounts.push({
+                  name: account.name,
+                  token: account.token || '',
+                  sessionToken: account.sessionToken || '',
+                  email: account.name,
+                  username: account.name
                 });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                  // 检查是否已存在
-                  const exists = this.managedAccounts.some(acc => acc.name === account.name);
-                  if (!exists) {
-                    this.managedAccounts.push({
-                      name: account.name,
-                      token: account.token,
-                      sessionToken: account.sessionToken || '',
-                      email: data.userData.email,
-                      username: data.userData.username
-                    });
-                    successCount++;
-                  } else {
-                    failedAccounts.push(`${account.name}（已存在）`);
-                  }
-                } else {
-                  failedAccounts.push(`${account.name}（${data.error || '验证失败'}）`);
-                }
-              } else if (account.sessionToken) {
-                // 只有 Session Token，直接添加（无法验证）
-                const exists = this.managedAccounts.some(acc => acc.name === account.name);
-                if (!exists) {
-                  this.managedAccounts.push({
-                    name: account.name,
-                    token: '',
-                    sessionToken: account.sessionToken,
-                    email: account.name,
-                    username: account.name
-                  });
-                  successCount++;
-                } else {
-                  failedAccounts.push(`${account.name}（已存在）`);
-                }
+                successCount++;
+              } else {
+                failedAccounts.push(`${account.name}（已存在）`);
               }
             } catch (error) {
-              failedAccounts.push(`${account.name}（网络错误）`);
+              failedAccounts.push(`${account.name}（添加失败）`);
             }
           }
           
