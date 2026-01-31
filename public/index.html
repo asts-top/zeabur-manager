@@ -626,19 +626,34 @@
 
       <!-- 账号管理模态框 -->
       <div v-if="showManageModal" class="modal-overlay" @mousedown.self="showManageModal = false">
-        <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-content" style="max-width: 700px; max-height: 90vh; display: flex; flex-direction: column;">
           <div class="modal-title">⚙️ 账号管理</div>
           
-          <!-- 账号列表 -->
-          <div style="margin-bottom: 20px;">
+          <!-- 搜索框 -->
+          <div style="margin-bottom: 15px;">
+            <input 
+              v-model="accountSearchQuery"
+              type="text"
+              placeholder="🔍 搜索账号名称或邮箱..."
+              style="width: 100%; padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none;"
+              @focus="$event.target.style.borderColor='#f696c6'"
+              @blur="$event.target.style.borderColor='#e5e7eb'"
+            />
+            <div v-if="filteredManagedAccounts.length !== managedAccounts.length" style="font-size: 12px; color: #666; margin-top: 5px;">
+              找到 {{ filteredManagedAccounts.length }} / {{ managedAccounts.length }} 个账号
+            </div>
+          </div>
+          
+          <!-- 账号列表（可滚动） -->
+          <div style="flex: 1; overflow-y: auto; margin-bottom: 20px; max-height: 300px;">
             <!-- 显示本地管理的账号 -->
-            <div v-for="(account, index) in managedAccounts" :key="'local-' + index" 
+            <div v-for="(account, index) in filteredManagedAccounts" :key="'local-' + account.index" 
                  style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
               <div style="flex: 1;">
                 <div style="font-weight: 600; color: #333; margin-bottom: 4px;">{{ account.name }}</div>
                 <div style="font-size: 12px; color: #999;">{{ maskEmail(account.email) || '未知邮箱' }}</div>
               </div>
-              <button @click="removeAccount(index)" 
+              <button @click="removeAccount(account.index)" 
                       style="background: #fee; color: #c00; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
                 🗑️ 删除
               </button>
@@ -1045,6 +1060,8 @@
           maskedBatchAccounts: '',
           batchAddError: '',
           batchAddSuccess: '',
+          // 账号搜索
+          accountSearchQuery: '',
           // 日志模态框
           showLogsModal: false,
           logsModalTitle: '',
@@ -1186,6 +1203,18 @@
             }
           }
           return total;
+        },
+        filteredManagedAccounts() {
+          if (!this.accountSearchQuery.trim()) {
+            return this.managedAccounts.map((acc, index) => ({ ...acc, index }));
+          }
+          const query = this.accountSearchQuery.toLowerCase();
+          return this.managedAccounts
+            .map((acc, index) => ({ ...acc, index }))
+            .filter(acc => 
+              acc.name.toLowerCase().includes(query) || 
+              (acc.email && acc.email.toLowerCase().includes(query))
+            );
         }
       },
       methods: {
@@ -1615,8 +1644,8 @@
             this.addingAccount = false;
           }
         },
-        async removeAccount(index) {
-          const accountName = this.managedAccounts[index].name;
+        async removeAccount(originalIndex) {
+          const accountName = this.managedAccounts[originalIndex].name;
           const password = prompt(`删除账号"${accountName}"需要验证管理员密码：`);
           
           if (!password) return;
@@ -1631,7 +1660,7 @@
             
             const result = await response.json();
             if (result.success) {
-              this.managedAccounts.splice(index, 1);
+              this.managedAccounts.splice(originalIndex, 1);
               await this.saveManagedAccounts();
               this.fetchData();
               alert('账号已删除');
@@ -1653,6 +1682,7 @@
           this.newAccount = { name: '', token: '', balance: '' };
           this.addAccountError = '';
           this.addAccountSuccess = '';
+          this.accountSearchQuery = ''; // 清除搜索
         },
         updateOpacity() {
           const opacity = this.opacity / 100;
