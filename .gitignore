@@ -28,3 +28,10 @@ Thumbs.db
 # 临时文件
 *.tmp
 .cache/
+
+# 敏感文件
+accounts_for_upload.txt
+zeabur_env_v2_full.txt
+check_token_expiry.py
+refresh_tokens.py
+*.txt
