@@ -634,7 +634,7 @@
           
           <!-- 搜索框 -->
           <div style="margin-bottom: 15px;">
-            <input 
+            <input
               v-model="accountSearchQuery"
               type="text"
               placeholder="🔍 搜索账号名称或邮箱..."
@@ -642,23 +642,28 @@
               @focus="$event.target.style.borderColor='#f696c6'"
               @blur="$event.target.style.borderColor='#e5e7eb'"
             />
-            <div v-if="filteredManagedAccounts.length !== managedAccounts.length" style="font-size: 12px; color: #666; margin-top: 5px;">
-              找到 {{ filteredManagedAccounts.length }} / {{ managedAccounts.length }} 个账号
-            </div>
           </div>
           
           <!-- 账号列表（可滚动） -->
-          <div style="overflow-y: auto; margin-bottom: 20px; max-height: 400px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;">
+          <div style="overflow-y: auto; margin-bottom: 20px; max-height: 400px; border: 1px solid #e5e7eb; border-radius: 8px;">
+            <!-- 账号统计 -->
+            <div style="position: sticky; top: 0; background: #f696c6; color: white; padding: 10px 15px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center;">
+              <span>共 {{ managedAccounts.length }} 个账号</span>
+              <span v-if="accountSearchQuery">搜索到 {{ filteredManagedAccounts.length }} 个</span>
+            </div>
             <!-- 显示本地管理的账号 -->
-            <div v-for="(account, index) in filteredManagedAccounts" :key="'local-' + account.index" 
-                 style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-              <div style="flex: 1;">
-                <div style="font-weight: 600; color: #333; margin-bottom: 4px;">{{ account.name }}</div>
-                <div style="font-size: 12px; color: #999;">{{ maskEmail(account.email) || '未知邮箱' }}</div>
+            <div v-for="(account, index) in filteredManagedAccounts" :key="'local-' + account.index"
+                 style="background: white; padding: 10px 15px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                <span style="background: #f696c6; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0;">{{ account.index + 1 }}</span>
+                <div style="min-width: 0; flex: 1;">
+                  <div style="font-weight: 600; color: #333; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ account.name }}</div>
+                  <div style="font-size: 11px; color: #999;">{{ account.sessionToken ? '✓ 有Session' : '✗ 无Session' }} | {{ account.token ? '✓ 有API' : '✗ 无API' }}</div>
+                </div>
               </div>
-              <button @click="removeAccount(account.index)" 
-                      style="background: #fee; color: #c00; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;">
-                🗑️ 删除
+              <button @click="removeAccount(account.index)"
+                      style="background: #fee; color: #c00; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; flex-shrink: 0;">
+                🗑️
               </button>
             </div>
             
@@ -1593,8 +1598,21 @@
 
             accounts.push({ name, token, sessionToken });
           }
-          
-          if (accounts.length === 0) {
+
+          // 文件内部去重（按邮箱/名称去重）
+          const uniqueAccounts = [];
+          const seenNames = new Set();
+          let duplicateCount = 0;
+          for (const acc of accounts) {
+            if (!seenNames.has(acc.name)) {
+              seenNames.add(acc.name);
+              uniqueAccounts.push(acc);
+            } else {
+              duplicateCount++;
+            }
+          }
+
+          if (uniqueAccounts.length === 0) {
             this.batchAddError = '没有有效的账号信息';
             return;
           }
@@ -1604,7 +1622,7 @@
           let failedAccounts = [];
 
           // 逐个添加账号（不验证 API Token，因为可能已过期）
-          for (const account of accounts) {
+          for (const account of uniqueAccounts) {
             try {
               // 检查是否已存在
               const exists = this.managedAccounts.some(acc => acc.name === account.name);
@@ -1633,12 +1651,17 @@
           }
           
           // 显示结果
+          let resultMsg = '';
+          if (duplicateCount > 0) {
+            resultMsg = `（文件内去重 ${duplicateCount} 个）`;
+          }
           if (successCount > 0 && failedAccounts.length === 0) {
-            this.batchAddSuccess = `✅ 成功添加 ${successCount} 个账号`;
+            this.batchAddSuccess = `✅ 成功添加 ${successCount} 个账号${resultMsg}`;
             this.batchAccounts = '';
             this.maskedBatchAccounts = '';
+            this.uploadedFileName = '';
           } else if (successCount > 0) {
-            this.batchAddSuccess = `✅ 成功添加 ${successCount} 个账号`;
+            this.batchAddSuccess = `✅ 成功添加 ${successCount} 个账号${resultMsg}`;
             this.batchAddError = `❌ 失败: ${failedAccounts.join(', ')}`;
           } else {
             this.batchAddError = `❌ 全部失败: ${failedAccounts.join(', ')}`;

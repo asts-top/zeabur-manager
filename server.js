@@ -1043,4 +1043,106 @@ app.listen(PORT, '0.0.0.0', () => {
   } else {
     console.log(`📊 准备就绪，等待添加账号...`);
   }
+
+  // 启动 Session 保活定时任务
+  startSessionKeepAlive();
 });
+
+// Session 保活功能 - 定期使用 Session Token 访问 API 保持活跃
+async function keepAliveSession(sessionToken, accountName) {
+  return new Promise((resolve) => {
+    const query = JSON.stringify({
+      query: `query { me { _id username } }`
+    });
+
+    const options = {
+      hostname: 'gateway.zeabur.com',
+      path: '/graphql',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': `token=${sessionToken}`,
+        'Content-Length': Buffer.byteLength(query)
+      },
+      timeout: 10000
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.data?.me?._id) {
+            resolve({ success: true, username: result.data.me.username });
+          } else {
+            resolve({ success: false, error: 'Session 可能已过期' });
+          }
+        } catch (e) {
+          resolve({ success: false, error: '解析响应失败' });
+        }
+      });
+    });
+
+    req.on('error', (e) => resolve({ success: false, error: e.message }));
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ success: false, error: '请求超时' });
+    });
+
+    req.write(query);
+    req.end();
+  });
+}
+
+// 保活所有账号的 Session
+async function keepAliveAllSessions() {
+  const serverAccounts = loadServerAccounts();
+  const envAccounts = getEnvAccounts();
+  const allAccounts = [...envAccounts, ...serverAccounts];
+
+  const accountsWithSession = allAccounts.filter(acc => acc.sessionToken);
+
+  if (accountsWithSession.length === 0) {
+    console.log(`⏰ [保活] 没有配置 Session Token 的账号`);
+    return;
+  }
+
+  console.log(`⏰ [保活] 开始刷新 ${accountsWithSession.length} 个账号的 Session...`);
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const account of accountsWithSession) {
+    const result = await keepAliveSession(account.sessionToken, account.name);
+    if (result.success) {
+      successCount++;
+      console.log(`   ✅ ${account.name}: 保活成功`);
+    } else {
+      failCount++;
+      console.log(`   ❌ ${account.name}: ${result.error}`);
+    }
+    // 每个请求间隔 1 秒，避免请求过快
+    await new Promise(r => setTimeout(r, 1000));
+  }
+
+  console.log(`⏰ [保活] 完成: ${successCount} 成功, ${failCount} 失败`);
+}
+
+// 启动保活定时任务
+function startSessionKeepAlive() {
+  // 每 6 小时执行一次保活
+  const KEEP_ALIVE_INTERVAL = 6 * 60 * 60 * 1000; // 6小时
+
+  console.log(`⏰ Session 保活已启动，每 6 小时执行一次`);
+
+  // 启动后 1 分钟执行第一次
+  setTimeout(() => {
+    keepAliveAllSessions();
+  }, 60 * 1000);
+
+  // 之后每 6 小时执行一次
+  setInterval(() => {
+    keepAliveAllSessions();
+  }, KEEP_ALIVE_INTERVAL);
+}
