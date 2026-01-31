@@ -633,7 +633,7 @@
           <div class="modal-title">⚙️ 账号管理</div>
           
           <!-- 搜索框和操作按钮 -->
-          <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+          <div style="margin-bottom: 10px; display: flex; gap: 10px; align-items: center;">
             <input
               v-model="accountSearchQuery"
               type="text"
@@ -649,6 +649,10 @@
             >
               🔄 一键去重
             </button>
+          </div>
+          <!-- 搜索结果提示 -->
+          <div v-if="accountSearchQuery" style="margin-bottom: 10px; padding: 8px 12px; background: #e8f5e9; border-radius: 6px; font-size: 13px; color: #2e7d32;">
+            🔍 搜索 "{{ accountSearchQuery }}" 找到 <strong>{{ filteredManagedAccounts.length }}</strong> / {{ managedAccounts.length }} 个账号
           </div>
           
           <!-- 账号列表（可滚动） -->
