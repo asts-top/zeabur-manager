@@ -1526,49 +1526,72 @@
         async batchAddAccounts() {
           this.batchAddError = '';
           this.batchAddSuccess = '';
-          
+
           if (!this.batchAccounts.trim()) {
             this.batchAddError = '请输入账号信息';
             return;
           }
-          
+
           const lines = this.batchAccounts.trim().split('\n');
           const accounts = [];
-          
+
           // 解析每一行
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
-            
+
             let name = '';
             let token = '';
-            
-            // 尝试匹配括号格式：名称(token) 或 名称（token）
-            const bracketMatch = line.match(/^(.+?)[（(](.+?)[）)]$/);
-            if (bracketMatch) {
-              name = bracketMatch[1].trim();
-              token = bracketMatch[2].trim();
-            } else if (line.includes(':')) {
-              // 冒号格式：名称:token
+            let sessionToken = '';
+
+            // 支持三段式格式：邮箱:API_Key:SessionToken
+            if (line.includes(':')) {
               const parts = line.split(':');
-              name = parts[0].trim();
-              token = parts.slice(1).join(':').trim();
+              if (parts.length >= 3) {
+                // 三段式：邮箱:API_Key:SessionToken
+                name = parts[0].trim();
+                token = parts[1].trim();
+                sessionToken = parts.slice(2).join(':').trim(); // Session Token 可能包含冒号
+              } else if (parts.length === 2) {
+                // 两段式：名称:Token
+                name = parts[0].trim();
+                token = parts[1].trim();
+              }
             } else if (line.includes('：')) {
-              // 中文冒号格式：名称：token
+              // 中文冒号格式
               const parts = line.split('：');
-              name = parts[0].trim();
-              token = parts.slice(1).join('：').trim();
+              if (parts.length >= 3) {
+                name = parts[0].trim();
+                token = parts[1].trim();
+                sessionToken = parts.slice(2).join('：').trim();
+              } else if (parts.length === 2) {
+                name = parts[0].trim();
+                token = parts[1].trim();
+              }
             } else {
-              this.batchAddError = `第 ${i + 1} 行格式错误，支持的格式：名称:Token 或 名称：Token 或 名称(Token) 或 名称（Token）`;
+              // 尝试匹配括号格式：名称(token) 或 名称（token）
+              const bracketMatch = line.match(/^(.+?)[（(](.+?)[）)]$/);
+              if (bracketMatch) {
+                name = bracketMatch[1].trim();
+                token = bracketMatch[2].trim();
+              } else {
+                this.batchAddError = `第 ${i + 1} 行格式错误，支持的格式：邮箱:API_Key:SessionToken 或 名称:Token`;
+                return;
+              }
+            }
+
+            if (!name) {
+              this.batchAddError = `第 ${i + 1} 行：账号名称不能为空`;
               return;
             }
-            
-            if (!name || !token) {
-              this.batchAddError = `第 ${i + 1} 行：账号名称或 Token 不能为空`;
+
+            // 如果没有 API Token 但有 Session Token，也允许添加
+            if (!token && !sessionToken) {
+              this.batchAddError = `第 ${i + 1} 行：API Token 和 Session Token 不能同时为空`;
               return;
             }
-            
-            accounts.push({ name, token });
+
+            accounts.push({ name, token, sessionToken });
           }
           
           if (accounts.length === 0) {
@@ -1579,37 +1602,56 @@
           this.addingAccount = true;
           let successCount = 0;
           let failedAccounts = [];
-          
+
           // 逐个验证并添加
           for (const account of accounts) {
             try {
-              const response = await fetch('/api/validate-account', {
-                method: 'POST',
-                headers: this.getAuthHeaders(),
-                body: JSON.stringify({
-                  accountName: account.name,
-                  apiToken: account.token
-                })
-              });
-              
-              const data = await response.json();
-              
-              if (response.ok) {
-                // 检查是否已存在
+              // 如果有 API Token，验证它
+              if (account.token) {
+                const response = await fetch('/api/validate-account', {
+                  method: 'POST',
+                  headers: this.getAuthHeaders(),
+                  body: JSON.stringify({
+                    accountName: account.name,
+                    apiToken: account.token
+                  })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                  // 检查是否已存在
+                  const exists = this.managedAccounts.some(acc => acc.name === account.name);
+                  if (!exists) {
+                    this.managedAccounts.push({
+                      name: account.name,
+                      token: account.token,
+                      sessionToken: account.sessionToken || '',
+                      email: data.userData.email,
+                      username: data.userData.username
+                    });
+                    successCount++;
+                  } else {
+                    failedAccounts.push(`${account.name}（已存在）`);
+                  }
+                } else {
+                  failedAccounts.push(`${account.name}（${data.error || '验证失败'}）`);
+                }
+              } else if (account.sessionToken) {
+                // 只有 Session Token，直接添加（无法验证）
                 const exists = this.managedAccounts.some(acc => acc.name === account.name);
                 if (!exists) {
                   this.managedAccounts.push({
                     name: account.name,
-                    token: account.token,
-                    email: data.userData.email,
-                    username: data.userData.username
+                    token: '',
+                    sessionToken: account.sessionToken,
+                    email: account.name,
+                    username: account.name
                   });
                   successCount++;
                 } else {
                   failedAccounts.push(`${account.name}（已存在）`);
                 }
-              } else {
-                failedAccounts.push(`${account.name}（${data.error || '验证失败'}）`);
               }
             } catch (error) {
               failedAccounts.push(`${account.name}（网络错误）`);
