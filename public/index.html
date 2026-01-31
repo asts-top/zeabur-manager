@@ -626,7 +626,7 @@
 
       <!-- 账号管理模态框 -->
       <div v-if="showManageModal" class="modal-overlay" @mousedown.self="showManageModal = false">
-        <div class="modal-content" style="max-width: 700px; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-content" style="max-width: 900px; width: 95%; max-height: 95vh; display: flex; flex-direction: column; overflow-y: auto;">
           <div class="modal-title">⚙️ 账号管理</div>
           
           <!-- 搜索框 -->
@@ -751,15 +751,16 @@
             <!-- 手动输入 -->
             <div style="font-weight: 600; color: #666; margin-bottom: 10px; font-size: 14px;">✍️ 或手动输入</div>
             <div style="margin-bottom: 10px; font-size: 13px; color: #666;">
-              每行一个账号，支持格式：<code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">名称:Token</code> 或 <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">名称：Token</code> 或 <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">名称(Token)</code> 或 <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">名称（Token）</code>
+              每行一个账号，支持格式：<code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">邮箱:API_Key:SessionToken</code>
             </div>
-            <div style="position: relative; min-height: 120px;">
-              <div style="width: 100%; min-height: 120px; padding: 12px; border: 2px solid transparent; border-radius: 8px; font-size: 13px; font-family: monospace; white-space: pre-wrap; word-break: break-all; pointer-events: none; color: #333; line-height: 1.5;">{{ maskedBatchAccounts }}</div>
+            <div style="position: relative; min-height: 200px; max-height: 400px; overflow: hidden;">
+              <div ref="maskedBatchDiv" style="width: 100%; min-height: 200px; max-height: 400px; padding: 12px; border: 2px solid transparent; border-radius: 8px; font-size: 13px; font-family: monospace; white-space: pre-wrap; word-break: break-all; pointer-events: none; color: #333; line-height: 1.5; overflow-y: auto;">{{ maskedBatchAccounts }}</div>
               <textarea
                 v-model="batchAccounts"
                 @input="updateBatchDisplay"
-                placeholder="每行一个账号，格式：账号名称:API_Token"
-                style="width: 100%; min-height: 120px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; font-family: monospace; resize: vertical; outline: none; position: absolute; top: 0; left: 0; color: transparent; caret-color: black; background: transparent; line-height: 1.5;"
+                @scroll="syncMaskedScroll"
+                placeholder="每行一个账号，格式：邮箱:API_Key:SessionToken&#10;或点击上方"选择文件"按钮上传文件"
+                style="width: 100%; min-height: 200px; max-height: 400px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; font-family: monospace; resize: none; outline: none; position: absolute; top: 0; left: 0; color: transparent; caret-color: black; background: transparent; line-height: 1.5; overflow-y: auto;"
               ></textarea>
             </div>
             <div v-if="batchAddError" style="color: #c00; font-size: 13px; margin-top: 10px;">
@@ -1899,6 +1900,13 @@
             return '0.01';
           }
           return cost.toFixed(2);
+        },
+        // 同步打码显示区域的滚动
+        syncMaskedScroll(event) {
+          const maskedDiv = this.$refs.maskedBatchDiv;
+          if (maskedDiv) {
+            maskedDiv.scrollTop = event.target.scrollTop;
+          }
         },
         // 更新批量添加的打码显示
         updateBatchDisplay() {
