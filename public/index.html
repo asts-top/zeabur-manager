@@ -438,6 +438,9 @@
       font-weight: bold;
       color: #333;
     }
+    .masked-batch-div::-webkit-scrollbar {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -754,13 +757,13 @@
               每行一个账号，支持格式：<code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">邮箱:API_Key:SessionToken</code>
             </div>
             <div style="position: relative; min-height: 200px; max-height: 400px; overflow: hidden;">
-              <div ref="maskedBatchDiv" style="width: 100%; min-height: 200px; max-height: 400px; padding: 12px; border: 2px solid transparent; border-radius: 8px; font-size: 13px; font-family: monospace; white-space: pre-wrap; word-break: break-all; pointer-events: none; color: #333; line-height: 1.5; overflow-y: auto;">{{ maskedBatchAccounts }}</div>
+              <div ref="maskedBatchDiv" class="masked-batch-div" style="width: 100%; min-height: 200px; max-height: 400px; padding: 12px; border: 2px solid transparent; border-radius: 8px; font-size: 13px; font-family: monospace; white-space: pre-wrap; word-break: break-all; pointer-events: none; color: #333; line-height: 1.5; overflow-y: scroll; scrollbar-width: none; -ms-overflow-style: none;">{{ maskedBatchAccounts }}</div>
               <textarea
                 v-model="batchAccounts"
                 @input="updateBatchDisplay"
                 @scroll="syncMaskedScroll"
                 placeholder="每行一个账号，格式：邮箱:API_Key:SessionToken&#10;或点击上方"选择文件"按钮上传文件"
-                style="width: 100%; min-height: 200px; max-height: 400px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; font-family: monospace; resize: none; outline: none; position: absolute; top: 0; left: 0; color: transparent; caret-color: black; background: transparent; line-height: 1.5; overflow-y: auto;"
+                style="width: 100%; min-height: 200px; max-height: 400px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; font-family: monospace; resize: none; outline: none; position: absolute; top: 0; left: 0; color: transparent; caret-color: black; background: transparent; line-height: 1.5; overflow-y: scroll;"
               ></textarea>
             </div>
             <div v-if="batchAddError" style="color: #c00; font-size: 13px; margin-top: 10px;">
