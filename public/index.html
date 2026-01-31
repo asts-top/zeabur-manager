@@ -645,7 +645,7 @@
           </div>
           
           <!-- 账号列表（可滚动） -->
-          <div style="flex: 1; overflow-y: auto; margin-bottom: 20px; max-height: 300px;">
+          <div style="overflow-y: auto; margin-bottom: 20px; max-height: 400px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px;">
             <!-- 显示本地管理的账号 -->
             <div v-for="(account, index) in filteredManagedAccounts" :key="'local-' + account.index" 
                  style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
