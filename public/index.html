@@ -721,6 +721,35 @@
           <!-- 批量添加 -->
           <div style="margin-top: 30px; padding-top: 30px; border-top: 2px dashed #e5e7eb;">
             <div style="font-weight: 600; color: #333; margin-bottom: 15px; font-size: 16px;">📦 批量添加账号</div>
+            
+            <!-- 文件上传 -->
+            <div style="margin-bottom: 20px; padding: 15px; background: #f0f9ff; border: 2px dashed #3b82f6; border-radius: 8px;">
+              <div style="font-weight: 600; color: #1e40af; margin-bottom: 10px; font-size: 14px;">📁 从文件导入</div>
+              <div style="font-size: 12px; color: #1e40af; margin-bottom: 10px;">
+                支持上传 .txt 文件，每行一个账号，格式：<code style="background: white; padding: 2px 6px; border-radius: 4px;">邮箱:API_Key:SessionToken</code>
+              </div>
+              <input 
+                type="file" 
+                ref="accountFileInput"
+                accept=".txt"
+                @change="handleFileUpload"
+                style="display: none;"
+              />
+              <button 
+                @click="$refs.accountFileInput.click()"
+                style="background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s;"
+                @mouseover="$event.target.style.background='#2563eb'"
+                @mouseout="$event.target.style.background='#3b82f6'"
+              >
+                📂 选择文件
+              </button>
+              <span v-if="uploadedFileName" style="margin-left: 10px; font-size: 13px; color: #059669;">
+                ✓ {{ uploadedFileName }}
+              </span>
+            </div>
+            
+            <!-- 手动输入 -->
+            <div style="font-weight: 600; color: #666; margin-bottom: 10px; font-size: 14px;">✍️ 或手动输入</div>
             <div style="margin-bottom: 10px; font-size: 13px; color: #666;">
               每行一个账号，支持格式：<code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">名称:Token</code> 或 <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">名称：Token</code> 或 <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">名称(Token)</code> 或 <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">名称（Token）</code>
             </div>
@@ -1062,6 +1091,8 @@
           batchAddSuccess: '',
           // 账号搜索
           accountSearchQuery: '',
+          // 文件上传
+          uploadedFileName: '',
           // 日志模态框
           showLogsModal: false,
           logsModalTitle: '',
@@ -1466,6 +1497,28 @@
           if (balance < 50) return 'low';
           return '';
         },
+        handleFileUpload(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+          
+          this.uploadedFileName = file.name;
+          this.batchAddError = '';
+          this.batchAddSuccess = '';
+          
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const content = e.target.result;
+            // 将文件内容填充到批量添加文本框
+            this.batchAccounts = content;
+            this.updateBatchDisplay();
+            this.batchAddSuccess = `✓ 文件 "${file.name}" 已加载，共 ${content.split('\n').filter(l => l.trim()).length} 行`;
+          };
+          reader.onerror = () => {
+            this.batchAddError = '文件读取失败，请重试';
+            this.uploadedFileName = '';
+          };
+          reader.readAsText(file);
+        },
         async batchAddAccounts() {
           this.batchAddError = '';
           this.batchAddSuccess = '';
@@ -1683,6 +1736,7 @@
           this.addAccountError = '';
           this.addAccountSuccess = '';
           this.accountSearchQuery = ''; // 清除搜索
+          this.uploadedFileName = ''; // 清除上传文件名
         },
         updateOpacity() {
           const opacity = this.opacity / 100;
